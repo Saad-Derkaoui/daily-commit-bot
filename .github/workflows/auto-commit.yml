@@ -26,7 +26,7 @@ jobs:
       - name: Ensure on default branch
         run: |
           # Use the default branch for pushes (main or master)
-          BRANCH=$(git rev-parse --abbrev-ref origin/HEAD | sed 's@origin/@@' || echo "main")
+          BRANCH=$(git rev-parse --abbrev-ref main | sed 's@origin/@@' || echo "main")
           git fetch origin $BRANCH || true
           git checkout -B $BRANCH
 
