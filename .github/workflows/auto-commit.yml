@@ -69,4 +69,4 @@ jobs:
           fi
           # Set remote URL using PAT (keeps author as configured above)
           git remote set-url origin "https://$PAT@github.com/$REPO.git"
-          git push origin HEAD
+          git push origin main
