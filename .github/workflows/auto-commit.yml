@@ -18,17 +18,24 @@ jobs:
         with:
           persist-credentials: false   # we'll use PAT for push to attribute to you
 
-      - name: Setup git user (set to your account)
+      - name: Setup git user
         run: |
           git config --global user.email "saad.derkaoui04@gmail.com"
           git config --global user.name "Saad-Derkaoui"
 
       - name: Ensure on default branch
         run: |
-          # Use the default branch for pushes (main or master)
-          BRANCH=$(git rev-parse --abbrev-ref main | sed 's@origin/@@' || echo "main")
-          git fetch origin $BRANCH || true
-          git checkout -B $BRANCH
+          # Detect current default branch (main or master)
+          if git show-ref --quiet refs/heads/main; then
+            BRANCH="main"
+          elif git show-ref --quiet refs/heads/master; then
+            BRANCH="master"
+          else
+            echo "No main/master branch found, defaulting to main."
+            BRANCH="main"
+          fi
+          echo "Using branch: $BRANCH"
+          git checkout $BRANCH || git checkout -b $BRANCH
 
       - name: Commit if not already today
         run: |
@@ -40,14 +47,14 @@ jobs:
             exit 0
           fi
 
-          # Random chance to skip (makes activity less robotic) - change threshold if you want
+          # Random skip chance (optional)
           SHOULD_COMMIT=$((RANDOM % 100))
           if [ $SHOULD_COMMIT -ge 90 ]; then
             echo "Random skip this day."
             exit 0
           fi
 
-          # Make a small, human-like set of commits
+          # Make 1–3 commits
           NUM_COMMITS=$((1 + RANDOM % 3))
           for i in $(seq 1 $NUM_COMMITS); do
             echo "Auto commit #$i - $(date -u)" >> .auto-commit-log.txt
@@ -64,9 +71,8 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           if [ -z "$PAT" ]; then
-            echo "PAT_TOKEN not set — cannot push as your user. Exiting with failure."
+            echo "PAT_TOKEN not set — cannot push as your user. Exiting."
             exit 1
           fi
-          # Set remote URL using PAT (keeps author as configured above)
           git remote set-url origin "https://$PAT@github.com/$REPO.git"
-          git push origin main
+          git push origin HEAD
