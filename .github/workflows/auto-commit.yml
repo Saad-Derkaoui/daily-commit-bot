@@ -1,0 +1,72 @@
+name: Auto Commit (daily)
+
+on:
+  schedule:
+    # Run once per day: ~10:00 Morocco time (Africa/Casablanca UTC+1) => 09:00 UTC
+    - cron: '0 9 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  auto-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false   # we'll use PAT for push to attribute to you
+
+      - name: Setup git user (set to your account)
+        run: |
+          git config --global user.email "saad.derkaoui04@gmail.com"
+          git config --global user.name "Saad-Derkaoui"
+
+      - name: Ensure on default branch
+        run: |
+          # Use the default branch for pushes (main or master)
+          BRANCH=$(git rev-parse --abbrev-ref origin/HEAD | sed 's@origin/@@' || echo "main")
+          git fetch origin $BRANCH || true
+          git checkout -B $BRANCH
+
+      - name: Commit if not already today
+        run: |
+          set -e
+          LAST_COMMIT_DATE=$(git log -1 --format=%cd --date=short 2>/dev/null || echo "1970-01-01")
+          TODAY=$(date +%Y-%m-%d)
+          if [ "$LAST_COMMIT_DATE" = "$TODAY" ]; then
+            echo "Already committed today, skipping."
+            exit 0
+          fi
+
+          # Random chance to skip (makes activity less robotic) - change threshold if you want
+          SHOULD_COMMIT=$((RANDOM % 100))
+          if [ $SHOULD_COMMIT -ge 90 ]; then
+            echo "Random skip this day."
+            exit 0
+          fi
+
+          # Make a small, human-like set of commits
+          NUM_COMMITS=$((1 + RANDOM % 3))
+          for i in $(seq 1 $NUM_COMMITS); do
+            echo "Auto commit #$i - $(date -u)" >> .auto-commit-log.txt
+            git add .auto-commit-log.txt
+            git commit -m "Auto commit #$i - $(date +%Y-%m-%d)"
+            if [ $i -lt $NUM_COMMITS ]; then
+              sleep $((2 + RANDOM % 5))
+            fi
+          done
+
+      - name: Push using PAT
+        env:
+          PAT: ${{ secrets.PAT_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$PAT" ]; then
+            echo "PAT_TOKEN not set — cannot push as your user. Exiting with failure."
+            exit 1
+          fi
+          # Set remote URL using PAT (keeps author as configured above)
+          git remote set-url origin "https://$PAT@github.com/$REPO.git"
+          git push origin HEAD
